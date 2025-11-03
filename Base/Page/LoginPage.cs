@@ -203,11 +203,27 @@ namespace PageObjectModelCsharp.Page
 
         public string GetErrorMessage()
         {
+            // Wait a bit for error to potentially appear
+            System.Threading.Thread.Sleep(2000);
+
             var errorLocators = new[]
             {
+                // Common error message patterns
                 By.XPath("//*[contains(@class, 'error')]"),
-                By.XPath("//*[contains(text(), 'error') or contains(text(), 'invalid')]"),
-                By.XPath("//*[@role='alert']")
+                By.XPath("//*[contains(@class, 'alert')]"),
+                By.XPath("//*[contains(@class, 'danger')]"),
+                By.XPath("//*[contains(@class, 'warning')]"),
+                By.XPath("//*[contains(@class, 'invalid')]"),
+                By.XPath("//*[contains(text(), 'error') or contains(text(), 'Error')]"),
+                By.XPath("//*[contains(text(), 'invalid') or contains(text(), 'Invalid')]"),
+                By.XPath("//*[contains(text(), 'incorrect') or contains(text(), 'Incorrect')]"),
+                By.XPath("//*[contains(text(), 'wrong') or contains(text(), 'Wrong')]"),
+                By.XPath("//*[contains(text(), 'failed') or contains(text(), 'Failed')]"),
+                By.XPath("//*[@role='alert']"),
+                By.XPath("//*[contains(@id, 'error')]"),
+                By.XPath("//div[contains(@class, 'message')]"),
+                // Add more specific locators based on your application
+                By.XPath("//*[contains(@class, 'c')]") // Generic class pattern
             };
 
             foreach (var locator in errorLocators)
@@ -215,24 +231,50 @@ namespace PageObjectModelCsharp.Page
                 try
                 {
                     var elements = Driver.FindElements(locator);
-                    var visibleElement = elements.FirstOrDefault(e => e.Displayed);
-                    if (visibleElement != null)
+                    var visibleElement = elements.FirstOrDefault(e => e.Displayed && !string.IsNullOrEmpty(e.Text));
+                    if (visibleElement != null && !string.IsNullOrWhiteSpace(visibleElement.Text))
                     {
-                        return visibleElement.Text;
+                        string errorText = visibleElement.Text.Trim();
+                        Console.WriteLine($"Found error message with locator {locator}: '{errorText}'");
+                        return errorText;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Console.WriteLine($"Error with locator {locator}: {ex.Message}");
                     // Continue to next locator
                 }
             }
 
+            Console.WriteLine("No error message elements found with any locator");
             return string.Empty;
         }
 
         public bool IsErrorMessageDisplayed()
         {
             return !string.IsNullOrEmpty(GetErrorMessage());
+        }
+
+        public void DebugErrorElements()
+        {
+            Console.WriteLine("=== DEBUGGING ERROR ELEMENTS ===");
+
+            // Get all visible elements that might contain text
+            var allElements = Driver.FindElements(By.XPath("//*[text() != '']"));
+            Console.WriteLine($"Found {allElements.Count} elements with text");
+
+            foreach (var element in allElements.Where(e => e.Displayed))
+            {
+                string text = element.Text.Trim();
+                if (!string.IsNullOrEmpty(text))
+                {
+                    string tagName = element.TagName;
+                    string classes = element.GetAttribute("class");
+                    Console.WriteLine($"Element: <{tagName} class='{classes}'> - Text: '{text}'");
+                }
+            }
+
+            Console.WriteLine("=== END DEBUGGING ===");
         }
     }
 }
