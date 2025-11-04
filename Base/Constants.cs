@@ -16,6 +16,7 @@ namespace PageObjectModelCsharp.Base
             public const string REGRESSION = "Regression";
             public const string LOGIN = "Login";
             public const string HOME = "Home";
+            public const string DOC_SIGNING = "DocSigning";
             public const string DEBUG = "Debug";
         }
 
