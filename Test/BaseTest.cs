@@ -1,16 +1,17 @@
-﻿using System;
-using System.IO;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using PageObjectModelCsharp.Util;
 using PageObjectModelCsharp.Base;
+using PageObjectModelCsharp.Page;
+using PageObjectModelCsharp.Util;
+using PageObjectModelCsharp.Util.Helpers;
+using System;
 using WebDriverManager;
 using WebDriverManager.DriverConfigs.Impl;
 
 namespace PageObjectModelCsharp.Test
 {
     [TestFixture]
+    [ExceptionHandler] // ✅ Centralized failure handling
     public class BaseTest
     {
         protected IWebDriver Driver { get; private set; } = null!;
@@ -21,101 +22,47 @@ namespace PageObjectModelCsharp.Test
         {
             BaseUrl = PropertyReader.GetPropertyValue("baseUrl");
 
-            // Setup ChromeDriver automatically
+            string testEmail = PropertyReader.GetPropertyValue("testEmail", "default@user.com");
+            ExtentReportManager.SetReportEmail(testEmail); // ✅ Set email before InitReport
+
             new DriverManager().SetUpDriver(new ChromeConfig());
-            Console.WriteLine("ChromeDriver setup completed");
+            ExtentReportManager.InitReport();
+
+            Console.WriteLine("✅ ChromeDriver setup completed");
         }
 
         [SetUp]
         public void Setup()
         {
-            InitializeDriver();
-            Driver.Manage().Window.Maximize();
+            Driver = DriverFactory.GetDriver(); // ✅ Use centralized factory
+            DriverProvider.SetDriver(Driver);   // ✅ Make available to ExceptionHandler
             Driver.Navigate().GoToUrl(BaseUrl);
-            Driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(Constants.Timeouts.LONG_TIMEOUT);
+            ExtentReportManager.CreateTest(TestContext.CurrentContext.Test.Name);
         }
 
         [TearDown]
         public void Teardown()
         {
-            try
-            {
-                if (TestContext.CurrentContext.Result.Outcome.Status == NUnit.Framework.Interfaces.TestStatus.Failed)
-                {
-                    var screenshotName = $"{TestContext.CurrentContext.Test.Name}_Failure";
-                    TakeScreenshot(screenshotName);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error during teardown: {ex.Message}");
-            }
-            finally
-            {
-                Driver?.Quit();
-                Driver?.Dispose();
-            }
+            DriverProvider.ClearDriver();       // ✅ Clear thread-local driver
+            DriverFactory.QuitDriver();         // ✅ Quit and dispose safely
         }
 
-        private void InitializeDriver()
+        [OneTimeTearDown]
+        public void OneTimeTeardown()
         {
-            var browser = PropertyReader.GetPropertyValue("browser", "chrome").ToLower();
-            var headless = bool.Parse(PropertyReader.GetPropertyValue("headless", "false"));
-
-            switch (browser)
-            {
-                case "chrome":
-                    var chromeOptions = new ChromeOptions();
-
-                    if (headless)
-                    {
-                        chromeOptions.AddArgument("--headless=new");
-                        Console.WriteLine("Running in HEADLESS mode");
-                    }
-
-                    chromeOptions.AddArgument("--no-sandbox");
-                    chromeOptions.AddArgument("--disable-dev-shm-usage");
-                    chromeOptions.AddArgument("--disable-gpu");
-                    chromeOptions.AddArgument("--window-size=1920,1080");
-                    chromeOptions.AddArgument("--disable-blink-features=AutomationControlled");
-                    chromeOptions.AddExcludedArgument("enable-automation");
-
-                    if (!headless)
-                    {
-                        chromeOptions.AddArgument("--start-maximized");
-                    }
-
-                    Driver = new ChromeDriver(chromeOptions);
-                    break;
-                default:
-                    throw new NotSupportedException($"Browser '{browser}' is not supported");
-            }
-
-            Console.WriteLine($"Browser: {browser}, Headless: {headless}");
+            ExtentReportManager.FlushReport();
+            Console.WriteLine("📄 Report finalized");
         }
 
-        // Change from private to protected so child classes can access it
-        protected void TakeScreenshot(string screenshotName)
+        protected string TakeScreenshot(string screenshotName)
         {
-            try
-            {
-                // Create screenshots directory if it doesn't exist
-                var screenshotsDir = Path.Combine(Directory.GetCurrentDirectory(), "screenshots");
-                if (!Directory.Exists(screenshotsDir))
-                {
-                    Directory.CreateDirectory(screenshotsDir);
-                }
-
-                var fileName = Path.Combine(screenshotsDir, $"{screenshotName}_{DateTime.Now:yyyyMMdd_HHmmss}.png");
-                var screenshot = ((ITakesScreenshot)Driver).GetScreenshot();
-                screenshot.SaveAsFile(fileName);
-                TestContext.AddTestAttachment(fileName);
-                Console.WriteLine($"Screenshot saved: {fileName}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to take screenshot: {ex.Message}");
-            }
+            return ScreenshotHelper.Capture(Driver, screenshotName);
+        }
+        protected void WaitForPageToLoad(int timeoutInSeconds = 10)
+        {
+            IJavaScriptExecutor js = (IJavaScriptExecutor)Driver;
+            var wait = new OpenQA.Selenium.Support.UI.WebDriverWait(Driver, TimeSpan.FromSeconds(timeoutInSeconds));
+            wait.Until(driver => js.ExecuteScript("return document.readyState").ToString() == "complete");
         }
     }
 }

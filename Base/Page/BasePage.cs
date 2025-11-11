@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using PageObjectModelCsharp.Util;
+using PageObjectModelCsharp.Util.Helpers;
 using PageObjectModelCsharp.Base;
 
 namespace PageObjectModelCsharp.Page
@@ -19,25 +21,6 @@ namespace PageObjectModelCsharp.Page
             Wait = new WebDriverWait(Driver, TimeSpan.FromSeconds(timeout));
 
             Driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(Constants.Timeouts.IMPLICIT_WAIT);
-
-            EnsureScreenshotDirectory();
-        }
-
-        private void EnsureScreenshotDirectory()
-        {
-            try
-            {
-                var screenshotsDir = Path.Combine(Directory.GetCurrentDirectory(), "screenshots");
-                if (!Directory.Exists(screenshotsDir))
-                {
-                    Directory.CreateDirectory(screenshotsDir);
-                    Console.WriteLine($"Created screenshots directory: {screenshotsDir}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to create screenshots directory: {ex.Message}");
-            }
         }
 
         private int GetTimeoutFromConfig()
@@ -54,191 +37,178 @@ namespace PageObjectModelCsharp.Page
 
         protected void WaitForElementToBeVisible(By by, int? customTimeout = null)
         {
-            var wait = customTimeout.HasValue
-                ? new WebDriverWait(Driver, TimeSpan.FromSeconds(customTimeout.Value))
-                : Wait;
+            PageActionHelper.Execute(Driver, () =>
+            {
+                var wait = customTimeout.HasValue
+                    ? new WebDriverWait(Driver, TimeSpan.FromSeconds(customTimeout.Value))
+                    : Wait;
 
-            try
-            {
                 wait.Until(driver => driver.FindElement(by).Displayed);
-                Console.WriteLine($"Element found and visible: {by}");
-            }
-            catch (WebDriverTimeoutException)
-            {
-                Console.WriteLine($"Element not visible within timeout: {by}");
-                throw;
-            }
+            }, $"Wait for element to be visible: {by}");
         }
 
         protected void WaitForElementToBeClickable(By by, int? customTimeout = null)
         {
-            var wait = customTimeout.HasValue
-                ? new WebDriverWait(Driver, TimeSpan.FromSeconds(customTimeout.Value))
-                : Wait;
-
-            wait.Until(driver =>
+            PageActionHelper.Execute(Driver, () =>
             {
-                var element = driver.FindElement(by);
-                return element.Displayed && element.Enabled;
-            });
+                var wait = customTimeout.HasValue
+                    ? new WebDriverWait(Driver, TimeSpan.FromSeconds(customTimeout.Value))
+                    : Wait;
+
+                wait.Until(driver =>
+                {
+                    var element = driver.FindElement(by);
+                    return element.Displayed && element.Enabled;
+                });
+            }, $"Wait for element to be clickable: {by}");
         }
 
         protected IWebElement GetElement(By by, int? customTimeout = null)
         {
-            WaitForElementToBeVisible(by, customTimeout);
-            return Driver.FindElement(by);
+            return PageActionHelper.Execute(Driver, () =>
+            {
+                WaitForElementToBeVisible(by, customTimeout);
+                return Driver.FindElement(by);
+            }, $"Get element: {by}");
         }
 
-        protected System.Collections.Generic.IList<IWebElement> GetElements(By by, int? customTimeout = null)
+        protected IList<IWebElement> GetElements(By by, int? customTimeout = null)
         {
-            WaitForElementToBeVisible(by, customTimeout);
-            return Driver.FindElements(by);
+            return PageActionHelper.Execute(Driver, () =>
+            {
+                WaitForElementToBeVisible(by, customTimeout);
+                return Driver.FindElements(by);
+            }, $"Get elements: {by}");
         }
 
         protected void Click(By by, int? customTimeout = null)
         {
-            WaitForElementToBeClickable(by, customTimeout);
-            var element = GetElement(by, customTimeout);
-            element.Click();
+            PageActionHelper.Execute(Driver, () =>
+            {
+                WaitForElementToBeClickable(by, customTimeout);
+                GetElement(by, customTimeout).Click();
+            }, $"Click element: {by}");
         }
 
         protected void SendKeys(By by, string text, int? customTimeout = null)
         {
-            var element = GetElement(by, customTimeout);
-            element.Clear();
-            element.SendKeys(text);
+            PageActionHelper.Execute(Driver, () =>
+            {
+                var element = GetElement(by, customTimeout);
+                element.Clear();
+                element.SendKeys(text);
+            }, $"Send keys to {by}: '{text}'");
         }
 
         protected string GetText(By by, int? customTimeout = null)
         {
-            var element = GetElement(by, customTimeout);
-            return element.Text;
+            return PageActionHelper.Execute(Driver, () =>
+            {
+                return GetElement(by, customTimeout).Text;
+            }, $"Get text from element: {by}");
         }
 
         protected string? GetAttribute(By by, string attributeName, int? customTimeout = null)
         {
-            var element = GetElement(by, customTimeout);
-            return element.GetAttribute(attributeName);
+            return PageActionHelper.Execute(Driver, () =>
+            {
+                return GetElement(by, customTimeout).GetAttribute(attributeName);
+            }, $"Get attribute '{attributeName}' from {by}");
         }
 
         protected bool IsElementVisible(By by, int? customTimeout = null)
         {
-            try
+            return PageActionHelper.Execute(Driver, () =>
             {
-                WaitForElementToBeVisible(by, customTimeout ?? Constants.Timeouts.SHORT_TIMEOUT);
-                Console.WriteLine($"Element is visible: {by}");
-                return true;
-            }
-            catch (WebDriverTimeoutException)
-            {
-                Console.WriteLine($"Element not visible: {by}");
-                return false;
-            }
+                try
+                {
+                    WaitForElementToBeVisible(by, customTimeout ?? Constants.Timeouts.SHORT_TIMEOUT);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }, $"Check if element is visible: {by}");
         }
 
         protected bool IsElementClickable(By by, int? customTimeout = null)
         {
-            try
+            return PageActionHelper.Execute(Driver, () =>
             {
-                WaitForElementToBeClickable(by, customTimeout ?? Constants.Timeouts.SHORT_TIMEOUT);
-                return true;
-            }
-            catch (WebDriverTimeoutException)
-            {
-                return false;
-            }
+                try
+                {
+                    WaitForElementToBeClickable(by, customTimeout ?? Constants.Timeouts.SHORT_TIMEOUT);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }, $"Check if element is clickable: {by}");
         }
 
         protected void WaitForPageToLoad()
         {
-            try
+            PageActionHelper.Execute(Driver, () =>
             {
                 Wait.Until(driver =>
                     ((IJavaScriptExecutor)driver).ExecuteScript("return document.readyState").Equals("complete"));
-                Console.WriteLine("Page loaded completely");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Page load wait failed: {ex.Message}");
-            }
+            }, "Wait for page to load");
         }
 
         public string GetCurrentUrl()
         {
-            var url = Driver.Url;
-            Console.WriteLine($"Current URL: {url}");
-            return url;
+            return PageActionHelper.Execute(Driver, () => Driver.Url, "Get current URL");
         }
 
         public string GetPageTitle()
         {
-            var title = Driver.Title;
-            Console.WriteLine($"Page Title: {title}");
-            return title;
+            return PageActionHelper.Execute(Driver, () => Driver.Title, "Get page title");
         }
 
         public void TakeScreenshot(string screenshotName)
         {
-            try
+            PageActionHelper.Execute(Driver, () =>
             {
-                var screenshotsDir = Path.Combine(Directory.GetCurrentDirectory(), "screenshots");
-                var fileName = Path.Combine(screenshotsDir, $"{screenshotName}_{DateTime.Now:yyyyMMdd_HHmmss}.png");
-                var screenshot = ((ITakesScreenshot)Driver).GetScreenshot();
-
-                screenshot.SaveAsFile(fileName);
-                Console.WriteLine($"Screenshot saved: {fileName}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to take screenshot: {ex.Message}");
-            }
+                string path = ScreenshotHelper.Capture(Driver, screenshotName);
+                ExtentReportManager.GetTest().Info($"Screenshot: {screenshotName}")
+                    .AddScreenCaptureFromPath(path);
+            }, $"Take screenshot: {screenshotName}");
         }
 
         public void DebugPageElements()
         {
-            Console.WriteLine("=== DEBUG: Finding All Elements ===");
-            Console.WriteLine($"Current URL: {Driver.Url}");
-            Console.WriteLine($"Page Title: {Driver.Title}");
-
-            // Find all input fields
-            var inputs = Driver.FindElements(By.TagName("input"));
-            Console.WriteLine($"Found {inputs.Count} input fields:");
-            foreach (var input in inputs)
+            PageActionHelper.Execute(Driver, () =>
             {
-                try
+                ExtentReportManager.GetTest().Info("=== DEBUG: Finding All Elements ===");
+                ExtentReportManager.GetTest().Info($"Current URL: {Driver.Url}");
+                ExtentReportManager.GetTest().Info($"Page Title: {Driver.Title}");
+
+                var inputs = Driver.FindElements(By.TagName("input"));
+                ExtentReportManager.GetTest().Info($"Found {inputs.Count} input fields:");
+                foreach (var input in inputs)
                 {
                     string type = input.GetAttribute("type") ?? "null";
                     string id = input.GetAttribute("id") ?? "null";
                     string name = input.GetAttribute("name") ?? "null";
                     string placeholder = input.GetAttribute("placeholder") ?? "null";
-                    Console.WriteLine($"  Input: type={type}, id={id}, name={name}, placeholder={placeholder}");
+                    ExtentReportManager.GetTest().Info($"Input: type={type}, id={id}, name={name}, placeholder={placeholder}");
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"  Input: Error reading attributes - {ex.Message}");
-                }
-            }
 
-            // Find all buttons
-            var buttons = Driver.FindElements(By.TagName("button"));
-            Console.WriteLine($"Found {buttons.Count} buttons:");
-            foreach (var button in buttons)
-            {
-                try
+                var buttons = Driver.FindElements(By.TagName("button"));
+                ExtentReportManager.GetTest().Info($"Found {buttons.Count} buttons:");
+                foreach (var button in buttons)
                 {
                     string text = button.Text ?? "null";
                     string type = button.GetAttribute("type") ?? "null";
                     string @class = button.GetAttribute("class") ?? "null";
-                    Console.WriteLine($"  Button: text='{text}', type={type}, class={@class}");
+                    ExtentReportManager.GetTest().Info($"Button: text='{text}', type={type}, class={@class}");
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"  Button: Error reading attributes - {ex.Message}");
-                }
-            }
 
-            TakeScreenshot("Debug_Page_Elements");
-            Console.WriteLine("=== DEBUG END ===");
+                TakeScreenshot("Debug_Page_Elements");
+                ExtentReportManager.GetTest().Info("=== DEBUG END ===");
+            }, "Debug page elements");
         }
     }
 }
