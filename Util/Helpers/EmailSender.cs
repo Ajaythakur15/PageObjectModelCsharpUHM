@@ -2,58 +2,63 @@
 using System.IO;
 using System.Net;
 using System.Net.Mail;
-using PageObjectModelCsharp.Util; // For PropertyReader
 
 namespace PageObjectModelCsharp.Util
 {
     public static class EmailSender
     {
+        /// <summary>
+        /// Sends an HTML summary email with optional report attachment.
+        /// </summary>
+        /// <param name="reportPath">Path to the zipped report file.</param>
+        /// <param name="summaryHtml">HTML content for the email body.</param>
         public static void SendReport(string reportPath, string summaryHtml)
         {
-            // ✅ Validate report file exists
-            if (!File.Exists(reportPath))
-                throw new FileNotFoundException($"Report file not found: {reportPath}");
-
-            // ✅ Read SMTP and recipient settings from App.properties
             string smtpHost = PropertyReader.GetPropertyValue("smtp_host");
             int smtpPort = int.Parse(PropertyReader.GetPropertyValue("smtp_port"));
             string smtpUser = PropertyReader.GetPropertyValue("smtp_user");
             string smtpPass = PropertyReader.GetPropertyValue("smtp_password");
             string recipients = PropertyReader.GetPropertyValue("email_to");
 
-            if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUser) ||
-                string.IsNullOrWhiteSpace(smtpPass) || string.IsNullOrWhiteSpace(recipients))
+            using MailMessage mail = new();
+            mail.From = new MailAddress("ajaykumar.singh@techprocompsoft.com");
+            mail.ReplyToList.Add("tech.ajaythakur@gmail.com");
+
+            foreach (var to in recipients.Split(','))
             {
-                throw new InvalidOperationException("SMTP configuration or recipient list is incomplete.");
+                string trimmed = to.Trim();
+                if (!string.IsNullOrWhiteSpace(trimmed))
+                    mail.To.Add(trimmed);
             }
 
-            using (MailMessage mail = new MailMessage())
+            mail.Subject = "📊 Automation Execution Summary";
+            mail.Body = summaryHtml;
+            mail.IsBodyHtml = true;
+
+            if (File.Exists(reportPath))
             {
-                mail.From = new MailAddress(smtpUser);
-
-                // ✅ Add recipients (comma-separated)
-                foreach (var to in recipients.Split(','))
-                {
-                    string trimmed = to.Trim();
-                    if (!string.IsNullOrWhiteSpace(trimmed))
-                        mail.To.Add(trimmed);
-                }
-
-                mail.Subject = "✅ Automation Execution Report";
-                mail.Body = summaryHtml;
-                mail.IsBodyHtml = true;
-
-                // ✅ Attach the report
                 mail.Attachments.Add(new Attachment(reportPath));
+                Console.WriteLine("📎 Report attached: " + Path.GetFileName(reportPath));
+            }
+            else
+            {
+                Console.WriteLine("⚠️ Report file not found: " + reportPath);
+            }
 
-                using (SmtpClient smtp = new SmtpClient(smtpHost, smtpPort))
-                {
-                    smtp.Credentials = new NetworkCredential(smtpUser, smtpPass);
-                    smtp.EnableSsl = true;
+            using SmtpClient smtp = new(smtpHost, smtpPort)
+            {
+                Credentials = new NetworkCredential(smtpUser, smtpPass),
+                EnableSsl = true
+            };
 
-                    smtp.Send(mail);
-                    Console.WriteLine("📧 Report emailed successfully to: " + recipients);
-                }
+            try
+            {
+                smtp.Send(mail);
+                Console.WriteLine("✅ Email sent successfully to: " + recipients);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("❌ Email sending failed: " + ex.Message);
             }
         }
     }

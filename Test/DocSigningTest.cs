@@ -2,6 +2,7 @@
 using PageObjectModelCsharp.Page;
 using PageObjectModelCsharp.Util;
 using PageObjectModelCsharp.Base;
+using System;
 
 namespace PageObjectModelCsharp.Test
 {
@@ -43,7 +44,7 @@ namespace PageObjectModelCsharp.Test
 
             Assert.Multiple(() =>
             {
-                Assert.That(isFormPresent || currentUrl.Contains("doc") || currentUrl.Contains("sign"),
+                Assert.That(isFormPresent || currentUrl.Contains("doc", StringComparison.OrdinalIgnoreCase) || currentUrl.Contains("sign", StringComparison.OrdinalIgnoreCase),
                     Is.True, "Should navigate to Doc Signing section");
             });
 
@@ -75,7 +76,7 @@ namespace PageObjectModelCsharp.Test
             bool isSubmissionSuccessful = _homePage.IsSubmissionSuccessful();
             string finalUrl = Driver.Url;
 
-            Assert.That(isSubmissionSuccessful || !finalUrl.Contains("BuilderPortal"),
+            Assert.That(isSubmissionSuccessful || !finalUrl.Contains("BuilderPortal", StringComparison.OrdinalIgnoreCase),
                 Is.True, "Form should be submitted or page should change");
 
             Console.WriteLine("✅ Doc Signing form submitted successfully");
