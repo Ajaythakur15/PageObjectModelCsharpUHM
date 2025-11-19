@@ -1,8 +1,10 @@
 ﻿using OpenQA.Selenium;
+using PageObjectModelCsharp.Base;
 using PageObjectModelCsharp.Util;
 using PageObjectModelCsharp.Util.Helpers;
 using System;
 using System.Linq;
+using System.Threading;
 
 namespace PageObjectModelCsharp.Page
 {
@@ -13,6 +15,18 @@ namespace PageObjectModelCsharp.Page
         private readonly By OTPInput = By.XPath("//input[@name='otp' or contains(@placeholder, 'Enter the code') or @type='text']");
         private readonly By ContinueButton = By.XPath("//button[contains(text(), 'Continue')]");
         private readonly By OTPPageHeader = By.XPath("//*[contains(text(), 'Verify Your Identity') or contains(text(), 'Enter the code')]");
+        private readonly By ResendOTPButton = By.XPath("//button[contains(text(), 'Resend') or @id='resendOtpBtn']");
+
+        private readonly By[] buttonLocators = new[]
+        {
+            By.XPath("//button[@class='c7ae0cd73 c91fa6616 ca65675d0 cbf0234ce cfa6fb59c']"),
+            By.XPath("//button[contains(@class, 'c7ae0cd73')]"),
+            By.XPath("//button[contains(text(), 'Sign In') or contains(text(), 'Login') or contains(text(), 'Continue') or @type='submit']"),
+            By.CssSelector("button[type='submit']"),
+            By.XPath("//input[@type='submit']"),
+            By.XPath("//button"),
+            By.XPath("//*[@role='button']")
+        };
 
         public LoginPage(IWebDriver driver) : base(driver) { }
 
@@ -21,7 +35,7 @@ namespace PageObjectModelCsharp.Page
             WaitForPageToLoad();
             PageActionHelper.Execute(Driver, () =>
             {
-                Console.WriteLine($"Entering email: {email}");
+                Console.WriteLine($"📧 Entering email: {email}");
                 SendKeys(EmailTextBox, email);
             }, "Enter email");
         }
@@ -30,7 +44,7 @@ namespace PageObjectModelCsharp.Page
         {
             PageActionHelper.Execute(Driver, () =>
             {
-                Console.WriteLine($"Entering password: {new string('*', password.Length)}");
+                Console.WriteLine($"🔒 Entering password: {new string('*', password.Length)}");
                 SendKeys(PasswordTextBox, password);
             }, "Enter password");
         }
@@ -38,17 +52,6 @@ namespace PageObjectModelCsharp.Page
         public void ClickSignIn()
         {
             TakeScreenshot("Before_SignIn_Click");
-
-            var buttonLocators = new[]
-            {
-                By.XPath("//button[@class='c7ae0cd73 c91fa6616 ca65675d0 cbf0234ce cfa6fb59c']"),
-                By.XPath("//button[contains(@class, 'c7ae0cd73')]"),
-                By.XPath("//button[contains(text(), 'Sign In') or contains(text(), 'Login') or contains(text(), 'Continue') or @type='submit']"),
-                By.CssSelector("button[type='submit']"),
-                By.XPath("//input[@type='submit']"),
-                By.XPath("//button"),
-                By.XPath("//*[@role='button']")
-            };
 
             foreach (var locator in buttonLocators)
             {
@@ -60,7 +63,7 @@ namespace PageObjectModelCsharp.Page
                     {
                         PageActionHelper.Execute(Driver, () =>
                         {
-                            Console.WriteLine($"Clicking button: '{button.Text}'");
+                            Console.WriteLine($"🖱️ Clicking button: '{button.Text}'");
                             ((IJavaScriptExecutor)Driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                             button.Click();
                         }, $"Click Sign In button via locator: {locator}");
@@ -71,7 +74,7 @@ namespace PageObjectModelCsharp.Page
 
             PageActionHelper.Execute(Driver, () =>
             {
-                Console.WriteLine("Trying JavaScript click fallback...");
+                Console.WriteLine("⚠️ Trying JavaScript click fallback...");
                 var result = ((IJavaScriptExecutor)Driver).ExecuteScript(@"
                     var buttons = document.querySelectorAll('button[type=""submit""], input[type=""submit""], button');
                     for (var i = 0; i < buttons.length; i++) {
@@ -86,21 +89,21 @@ namespace PageObjectModelCsharp.Page
             }, "Fallback JavaScript click");
 
             DebugPageElements();
-            throw new Exception("No sign-in button could be found or clicked on the page");
+            throw new Exception(Constants.ErrorMessages.ELEMENT_NOT_FOUND);
         }
 
         public bool IsOTPPageDisplayed()
         {
-            return IsElementVisible(OTPPageHeader, 10);
+            return IsElementVisible(OTPPageHeader, Constants.Timeouts.MEDIUM_TIMEOUT);
         }
 
         public void EnterOTP(string otp)
         {
             PageActionHelper.Execute(Driver, () =>
             {
-                if (IsElementVisible(OTPInput, 10))
+                if (IsElementVisible(OTPInput, Constants.Timeouts.MEDIUM_TIMEOUT))
                 {
-                    Console.WriteLine($"Entering OTP: {otp}");
+                    Console.WriteLine($"🔐 Entering OTP: {otp}");
                     SendKeys(OTPInput, otp);
                 }
                 else
@@ -138,7 +141,7 @@ namespace PageObjectModelCsharp.Page
                 EnterOTP(otp);
                 ClickContinue();
 
-                System.Threading.Thread.Sleep(3000);
+                Thread.Sleep(Constants.Timeouts.SHORT_TIMEOUT * 1000);
                 TakeScreenshot("After_OTP_Entry");
             }
         }
@@ -173,7 +176,7 @@ namespace PageObjectModelCsharp.Page
 
         public string GetErrorMessage()
         {
-            System.Threading.Thread.Sleep(2000);
+            Thread.Sleep(Constants.Timeouts.SHORT_TIMEOUT * 1000);
 
             var errorLocators = new[]
             {
@@ -200,7 +203,7 @@ namespace PageObjectModelCsharp.Page
                 if (visibleElement != null)
                 {
                     string errorText = visibleElement.Text.Trim();
-                    Console.WriteLine($"Found error message: '{errorText}'");
+                    Console.WriteLine($"❌ Found error message: '{errorText}'");
                     return errorText;
                 }
             }
@@ -211,6 +214,73 @@ namespace PageObjectModelCsharp.Page
         public bool IsErrorMessageDisplayed()
         {
             return !string.IsNullOrEmpty(GetErrorMessage());
+        }
+
+        public bool AreLoginElementsVisible()
+        {
+            return IsElementVisible(EmailTextBox)
+                && IsElementVisible(PasswordTextBox)
+                && buttonLocators.Any(locator => Driver.FindElements(locator).Any(e => e.Displayed && e.Enabled));
+        }
+
+        public void LoginWithEnterKey(string email, string password)
+        {
+            EnterEmail(email);
+            EnterPassword(password);
+            PressEnter(PasswordTextBox);
+        }
+
+        public void LoginWithTrimmedUsername(string email, string password)
+        {
+            string spacedEmail = $"  {email}  ";
+            LoginWithOTP(spacedEmail, password);
+        }
+
+        public bool IsEmailFormatErrorDisplayed()
+        {
+            string error = GetErrorMessage();
+            return error.Contains("valid email", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("invalid email", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("email format", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public bool IsGenericLoginErrorDisplayed()
+        {
+            string error = GetErrorMessage();
+            return error.Contains("invalid", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("credentials", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("incorrect", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public bool IsRequiredFieldErrorDisplayed()
+        {
+            string error = GetErrorMessage();
+            return error.Contains("required", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("missing", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public void ClickResendOTP()
+        {
+            PageActionHelper.Execute(Driver, () =>
+            {
+                if (IsElementVisible(ResendOTPButton))
+                {
+                    Console.WriteLine("🔄 Clicking Resend OTP");
+                    Click(ResendOTPButton);
+                }
+                else
+                {
+                    throw new Exception("Resend OTP button not found");
+                }
+            }, "Click Resend OTP");
+        }
+
+        public bool IsOTPExpiredMessageDisplayed()
+        {
+            string error = GetErrorMessage();
+            return error.Contains("expired", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("resend", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

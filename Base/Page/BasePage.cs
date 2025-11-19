@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
+using PageObjectModelCsharp.Base;
 using PageObjectModelCsharp.Util;
 using PageObjectModelCsharp.Util.Helpers;
-using PageObjectModelCsharp.Base;
 
 namespace PageObjectModelCsharp.Page
 {
@@ -17,33 +16,29 @@ namespace PageObjectModelCsharp.Page
         protected BasePage(IWebDriver driver)
         {
             Driver = driver ?? throw new ArgumentNullException(nameof(driver));
-            var timeout = GetTimeoutFromConfig();
-            Wait = new WebDriverWait(Driver, TimeSpan.FromSeconds(timeout));
-
+            Wait = new WebDriverWait(Driver, TimeSpan.FromSeconds(GetTimeoutFromConfig()));
             Driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(Constants.Timeouts.IMPLICIT_WAIT);
         }
 
         private int GetTimeoutFromConfig()
         {
-            try
-            {
-                return int.Parse(PropertyReader.GetPropertyValue("timeout", "30"));
-            }
-            catch
-            {
-                return Constants.Timeouts.MEDIUM_TIMEOUT;
-            }
+            return int.TryParse(PropertyReader.GetPropertyValue("timeout", "30"), out var timeout)
+                ? timeout
+                : Constants.Timeouts.MEDIUM_TIMEOUT;
+        }
+
+        protected WebDriverWait GetWait(int? customTimeout)
+        {
+            return customTimeout.HasValue
+                ? new WebDriverWait(Driver, TimeSpan.FromSeconds(customTimeout.Value))
+                : Wait;
         }
 
         protected void WaitForElementToBeVisible(By by, int? customTimeout = null)
         {
             PageActionHelper.Execute(Driver, () =>
             {
-                var wait = customTimeout.HasValue
-                    ? new WebDriverWait(Driver, TimeSpan.FromSeconds(customTimeout.Value))
-                    : Wait;
-
-                wait.Until(driver => driver.FindElement(by).Displayed);
+                GetWait(customTimeout).Until(driver => driver.FindElement(by).Displayed);
             }, $"Wait for element to be visible: {by}");
         }
 
@@ -51,11 +46,7 @@ namespace PageObjectModelCsharp.Page
         {
             PageActionHelper.Execute(Driver, () =>
             {
-                var wait = customTimeout.HasValue
-                    ? new WebDriverWait(Driver, TimeSpan.FromSeconds(customTimeout.Value))
-                    : Wait;
-
-                wait.Until(driver =>
+                GetWait(customTimeout).Until(driver =>
                 {
                     var element = driver.FindElement(by);
                     return element.Displayed && element.Enabled;
@@ -65,29 +56,26 @@ namespace PageObjectModelCsharp.Page
 
         protected IWebElement GetElement(By by, int? customTimeout = null)
         {
-            return PageActionHelper.Execute(Driver, () =>
-            {
-                WaitForElementToBeVisible(by, customTimeout);
-                return Driver.FindElement(by);
-            }, $"Get element: {by}");
+            WaitForElementToBeVisible(by, customTimeout);
+            return PageActionHelper.Execute(Driver, () => Driver.FindElement(by), $"Get element: {by}");
+        }
+
+        public void WaitForUrlToContain(string keyword, int timeoutSeconds = 30)
+        {
+            new WebDriverWait(Driver, TimeSpan.FromSeconds(timeoutSeconds))
+                .Until(driver => driver.Url.Contains(keyword, StringComparison.OrdinalIgnoreCase));
         }
 
         protected IList<IWebElement> GetElements(By by, int? customTimeout = null)
         {
-            return PageActionHelper.Execute(Driver, () =>
-            {
-                WaitForElementToBeVisible(by, customTimeout);
-                return Driver.FindElements(by);
-            }, $"Get elements: {by}");
+            WaitForElementToBeVisible(by, customTimeout);
+            return PageActionHelper.Execute(Driver, () => Driver.FindElements(by), $"Get elements: {by}");
         }
 
         protected void Click(By by, int? customTimeout = null)
         {
-            PageActionHelper.Execute(Driver, () =>
-            {
-                WaitForElementToBeClickable(by, customTimeout);
-                GetElement(by, customTimeout).Click();
-            }, $"Click element: {by}");
+            WaitForElementToBeClickable(by, customTimeout);
+            PageActionHelper.Execute(Driver, () => GetElement(by, customTimeout).Click(), $"Click element: {by}");
         }
 
         protected void SendKeys(By by, string text, int? customTimeout = null)
@@ -102,18 +90,12 @@ namespace PageObjectModelCsharp.Page
 
         protected string GetText(By by, int? customTimeout = null)
         {
-            return PageActionHelper.Execute(Driver, () =>
-            {
-                return GetElement(by, customTimeout).Text;
-            }, $"Get text from element: {by}");
+            return PageActionHelper.Execute(Driver, () => GetElement(by, customTimeout).Text, $"Get text from element: {by}");
         }
 
         protected string? GetAttribute(By by, string attributeName, int? customTimeout = null)
         {
-            return PageActionHelper.Execute(Driver, () =>
-            {
-                return GetElement(by, customTimeout).GetAttribute(attributeName);
-            }, $"Get attribute '{attributeName}' from {by}");
+            return PageActionHelper.Execute(Driver, () => GetElement(by, customTimeout).GetAttribute(attributeName), $"Get attribute '{attributeName}' from {by}");
         }
 
         protected bool IsElementVisible(By by, int? customTimeout = null)
@@ -148,7 +130,7 @@ namespace PageObjectModelCsharp.Page
             }, $"Check if element is clickable: {by}");
         }
 
-        protected void WaitForPageToLoad()
+        public void WaitForPageToLoad()
         {
             PageActionHelper.Execute(Driver, () =>
             {
@@ -172,42 +154,42 @@ namespace PageObjectModelCsharp.Page
             PageActionHelper.Execute(Driver, () =>
             {
                 string path = ScreenshotHelper.Capture(Driver, screenshotName);
-                ExtentReportManager.GetTest().Info($"Screenshot: {screenshotName}")
+                ExtentReportManager.GetTest().Info($"{Constants.ReportLabels.SCREENSHOT}: {screenshotName}")
                     .AddScreenCaptureFromPath(path);
             }, $"Take screenshot: {screenshotName}");
+        }
+        public void PressEnter(By locator)
+        {
+            var element = Driver.FindElement(locator);
+            element.SendKeys(Keys.Enter);
+            Console.WriteLine($"⏎ Pressed Enter on element: {locator}");
         }
 
         public void DebugPageElements()
         {
             PageActionHelper.Execute(Driver, () =>
             {
-                ExtentReportManager.GetTest().Info("=== DEBUG: Finding All Elements ===");
-                ExtentReportManager.GetTest().Info($"Current URL: {Driver.Url}");
-                ExtentReportManager.GetTest().Info($"Page Title: {Driver.Title}");
+                var test = ExtentReportManager.GetTest();
+                test.Info($"=== {Constants.ReportLabels.DEBUG_SECTION} ===");
+                test.Info($"Current URL: {Driver.Url}");
+                test.Info($"Page Title: {Driver.Title}");
 
                 var inputs = Driver.FindElements(By.TagName("input"));
-                ExtentReportManager.GetTest().Info($"Found {inputs.Count} input fields:");
+                test.Info($"Found {inputs.Count} input fields:");
                 foreach (var input in inputs)
                 {
-                    string type = input.GetAttribute("type") ?? "null";
-                    string id = input.GetAttribute("id") ?? "null";
-                    string name = input.GetAttribute("name") ?? "null";
-                    string placeholder = input.GetAttribute("placeholder") ?? "null";
-                    ExtentReportManager.GetTest().Info($"Input: type={type}, id={id}, name={name}, placeholder={placeholder}");
+                    test.Info($"Input: type={input.GetAttribute("type") ?? "null"}, id={input.GetAttribute("id") ?? "null"}, name={input.GetAttribute("name") ?? "null"}, placeholder={input.GetAttribute("placeholder") ?? "null"}");
                 }
 
                 var buttons = Driver.FindElements(By.TagName("button"));
-                ExtentReportManager.GetTest().Info($"Found {buttons.Count} buttons:");
+                test.Info($"Found {buttons.Count} buttons:");
                 foreach (var button in buttons)
                 {
-                    string text = button.Text ?? "null";
-                    string type = button.GetAttribute("type") ?? "null";
-                    string @class = button.GetAttribute("class") ?? "null";
-                    ExtentReportManager.GetTest().Info($"Button: text='{text}', type={type}, class={@class}");
+                    test.Info($"Button: text='{button.Text ?? "null"}', type={button.GetAttribute("type") ?? "null"}, class={button.GetAttribute("class") ?? "null"}");
                 }
 
                 TakeScreenshot("Debug_Page_Elements");
-                ExtentReportManager.GetTest().Info("=== DEBUG END ===");
+                test.Info($"=== END {Constants.ReportLabels.DEBUG_SECTION} ===");
             }, "Debug page elements");
         }
     }
