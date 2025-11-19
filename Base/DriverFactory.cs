@@ -2,7 +2,6 @@
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Edge;
 using PageObjectModelCsharp.Util;
-using System;
 using System.Drawing;
 
 namespace PageObjectModelCsharp.Base
