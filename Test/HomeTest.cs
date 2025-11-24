@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PageObjectModelCsharp.Page;
 using PageObjectModelCsharp.Base;
 using PageObjectModelCsharp.Util;
@@ -6,14 +6,14 @@ using System;
 
 namespace PageObjectModelCsharp.Test
 {
-    [TestFixture]
-    [Category(Constants.TestCategories.HOME)]
+    [TestClass]
+    [TestCategory(Constants.TestCategories.HOME)]
     public class HomeTest : BaseTest
     {
         private LoginPage _loginPage = null!;
         private HomePage _homePage = null!;
 
-        [SetUp]
+        [TestInitialize]
         public void TestSetup()
         {
             _loginPage = new LoginPage(Driver);
@@ -39,8 +39,8 @@ namespace PageObjectModelCsharp.Test
             }
         }
 
-        [Test]
-        [Category(Constants.TestCategories.SMOKE)]
+        [TestMethod]
+        [TestCategory(Constants.TestCategories.SMOKE)]
         public void HomePage_ShouldLoad_AfterSuccessfulLogin()
         {
             try
@@ -56,7 +56,7 @@ namespace PageObjectModelCsharp.Test
                 Console.WriteLine($"✅ Home page loaded: {isHomePageLoaded}");
                 Console.WriteLine($"✅ User logged in: {isUserLoggedIn}");
 
-                Assert.That(isHomePageLoaded, Is.True,
+                Assert.IsTrue(isHomePageLoaded,
                     $"Home page should be loaded after login. URL: {Driver.Url}, Title: {Driver.Title}");
 
                 Console.WriteLine("✅ PASS: Home page loaded successfully after login");
@@ -69,8 +69,8 @@ namespace PageObjectModelCsharp.Test
             }
         }
 
-        [Test]
-        [Category(Constants.TestCategories.SMOKE)]
+        [TestMethod]
+        [TestCategory(Constants.TestCategories.SMOKE)]
         public void HomePage_ShouldDisplay_WelcomeMessage()
         {
             try
@@ -92,15 +92,13 @@ namespace PageObjectModelCsharp.Test
                 bool isOnBuilderPortal = currentUrl.Contains("BuilderPortal", StringComparison.OrdinalIgnoreCase);
                 bool hasBuilderPortalTitle = pageTitle.Contains("Builder Portal", StringComparison.OrdinalIgnoreCase);
 
-                Assert.Multiple(() =>
-                {
-                    Assert.That(isOnBuilderPortal, Is.True,
-                        $"Should be redirected to BuilderPortal. Current URL: {currentUrl}");
-                    Assert.That(hasBuilderPortalTitle, Is.True,
-                        $"Should have Builder Portal title. Current title: {pageTitle}");
-                    Assert.That(isHomePageLoaded, Is.True,
-                        "Should recognize home page after login");
-                });
+                // MSTest doesn't support Assert.Multiple, so check sequentially
+                Assert.IsTrue(isOnBuilderPortal,
+                    $"Should be redirected to BuilderPortal. Current URL: {currentUrl}");
+                Assert.IsTrue(hasBuilderPortalTitle,
+                    $"Should have Builder Portal title. Current title: {pageTitle}");
+                Assert.IsTrue(isHomePageLoaded,
+                    "Should recognize home page after login");
 
                 Console.WriteLine("✅ PASS: Home page displays content after login");
             }
@@ -112,7 +110,7 @@ namespace PageObjectModelCsharp.Test
             }
         }
 
-        [TearDown]
+        [TestCleanup]
         public void TestTearDown()
         {
             try

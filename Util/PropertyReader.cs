@@ -7,16 +7,16 @@ namespace PageObjectModelCsharp.Util
 {
     /// <summary>
     /// Reads key-value pairs from App.properties file with thread-safe lazy initialization.
+    /// Case-insensitive keys so "BaseUrl" and "baseUrl" both work.
     /// </summary>
     public static class PropertyReader
     {
-        private static readonly Dictionary<string, string> _properties = new();
+        private static readonly Dictionary<string, string> _properties =
+            new(StringComparer.OrdinalIgnoreCase); // ✅ case-insensitive dictionary
+
         private static bool _isInitialized = false;
         private static readonly object _lockObject = new();
 
-        /// <summary>
-        /// Retrieves a property value or throws if not found.
-        /// </summary>
         public static string GetPropertyValue(string propertyName)
         {
             InitializeProperties();
@@ -27,9 +27,6 @@ namespace PageObjectModelCsharp.Util
             throw new KeyNotFoundException($"❌ Property '{propertyName}' not found in App.properties");
         }
 
-        /// <summary>
-        /// Retrieves a property value or returns default if not found.
-        /// </summary>
         public static string GetPropertyValue(string propertyName, string defaultValue)
         {
             InitializeProperties();
@@ -40,18 +37,12 @@ namespace PageObjectModelCsharp.Util
             return defaultValue;
         }
 
-        /// <summary>
-        /// Checks if a property exists.
-        /// </summary>
         public static bool ContainsProperty(string propertyName)
         {
             InitializeProperties();
             return _properties.ContainsKey(propertyName);
         }
 
-        /// <summary>
-        /// Reloads all properties from disk.
-        /// </summary>
         public static void ReloadProperties()
         {
             lock (_lockObject)
@@ -62,9 +53,6 @@ namespace PageObjectModelCsharp.Util
             }
         }
 
-        /// <summary>
-        /// Initializes the property dictionary from App.properties file.
-        /// </summary>
         private static void InitializeProperties()
         {
             if (_isInitialized) return;
@@ -92,7 +80,7 @@ namespace PageObjectModelCsharp.Util
                         {
                             string key = parts[0].Trim();
                             string value = parts[1].Trim();
-                            _properties[key] = value;
+                            _properties[key] = value; // ✅ stored case-insensitive
                         }
                     }
 
@@ -106,9 +94,6 @@ namespace PageObjectModelCsharp.Util
             }
         }
 
-        /// <summary>
-        /// Attempts to locate the App.properties file from known paths.
-        /// </summary>
         private static string GetPropertiesFilePath()
         {
             var possiblePaths = new[]
@@ -130,7 +115,6 @@ namespace PageObjectModelCsharp.Util
                 }
             }
 
-            // Default fallback
             return Path.Combine(Directory.GetCurrentDirectory(), "config", "App.properties");
         }
     }

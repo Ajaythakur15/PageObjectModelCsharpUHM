@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PageObjectModelCsharp.Util;
 using PageObjectModelCsharp.Util.Helpers;
 using System;
@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 
 namespace PageObjectModelCsharp.Test
 {
-    [TestFixture]
+    [TestClass]
     public class SendGridEmailTest
     {
-        [Test]
+        [TestMethod]
         public async Task SendBasicEmailSummary()
         {
             string apiKey = PropertyReader.GetPropertyValue("smtp_password");
@@ -42,6 +42,9 @@ namespace PageObjectModelCsharp.Test
 
             await SendGridMailer.SendEmailWithAttachmentAsync(apiKey, recipient, htmlContent, zipPath);
             Console.WriteLine("✅ Email sent successfully with attachment");
+
+            // ✅ Optional assertion to confirm test passes
+            Assert.IsTrue(File.Exists(zipPath), "Zipped report should exist before sending email");
         }
     }
 }

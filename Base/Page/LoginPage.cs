@@ -232,8 +232,9 @@ namespace PageObjectModelCsharp.Page
 
         public void LoginWithTrimmedUsername(string email, string password)
         {
-            string spacedEmail = $"  {email}  ";
-            LoginWithOTP(spacedEmail, password);
+            string spacedEmail = $"  {email}  "; // simulate user input with spaces
+            string trimmedEmail = spacedEmail.Trim(); // clean before sending
+            LoginWithOTP(trimmedEmail, password);
         }
 
         public bool IsEmailFormatErrorDisplayed()

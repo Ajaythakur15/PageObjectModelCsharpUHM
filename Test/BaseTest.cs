@@ -1,72 +1,106 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenQA.Selenium;
 using PageObjectModelCsharp.Base;
-using PageObjectModelCsharp.Page;
 using PageObjectModelCsharp.Util;
 using PageObjectModelCsharp.Util.Helpers;
-using System;
-using System.Threading.Tasks;
 using WebDriverManager;
 using WebDriverManager.DriverConfigs.Impl;
+using System;
+using System.Threading.Tasks;
 
-namespace PageObjectModelCsharp.Test
+[TestClass]
+[ExceptionHandler] // ✅ Centralized failure handling
+public class BaseTest
 {
-    [TestFixture]
-    [ExceptionHandler] // ✅ Centralized failure handling
-    public class BaseTest
+    public TestContext TestContext { get; set; } = null!;  // ✅ MSTest injects this at runtime
+
+    protected IWebDriver Driver { get; private set; } = null!;
+    protected static string BaseUrl { get; private set; } = null!;
+
+    [ClassInitialize]
+    public static void OneTimeSetup(TestContext context)
     {
-        protected IWebDriver Driver { get; private set; } = null!;
-        protected string BaseUrl { get; private set; } = null!;
+        Console.WriteLine("🔍 Validating configuration...");
+        ConfigValidator.ValidateAll();
 
-        [OneTimeSetUp]
-        public void OneTimeSetup()
+        BaseUrl = PropertyReader.GetPropertyValue("baseUrl", string.Empty);
+
+        Console.WriteLine($"🌐 BaseUrl read from config: '{BaseUrl}'");
+
+        if (string.IsNullOrWhiteSpace(BaseUrl))
         {
-            Console.WriteLine("🔍 Validating configuration...");
-            ConfigValidator.ValidateAll(); // ✅ Auto-validate required config keys
-
-            BaseUrl = PropertyReader.GetPropertyValue("baseUrl");
-            string testEmail = PropertyReader.GetPropertyValue("testEmail", "default@user.com");
-
-            ExtentReportManager.SetReportEmail(testEmail); // Set email before InitReport
-            new DriverManager().SetUpDriver(new ChromeConfig()); // Optional: switch based on config
-            ExtentReportManager.InitReport();
-
-            Console.WriteLine("✅ ChromeDriver setup completed");
+            throw new InvalidOperationException(
+                "BaseUrl is not configured. Please check App.properties and PropertyReader implementation.");
         }
 
-        [SetUp]
-        public void Setup()
+        string testEmail = PropertyReader.GetPropertyValue("testEmail", "default@user.com");
+        ExtentReportManager.SetReportEmail(testEmail);
+
+        string driverMode = PropertyReader.GetPropertyValue("driverMode", "local");
+        if (driverMode.Equals("webdrivermanager", StringComparison.OrdinalIgnoreCase))
         {
-            Driver = DriverFactory.GetDriver();           // Centralized driver creation
-            DriverProvider.SetDriver(Driver);             // Thread-safe for exception handling
-            Driver.Navigate().GoToUrl(BaseUrl);           // Launch base URL
-            ExtentReportManager.CreateTest(TestContext.CurrentContext.Test.Name);
+            new WebDriverManager.DriverManager().SetUpDriver(new WebDriverManager.DriverConfigs.Impl.ChromeConfig());
+            Console.WriteLine("🌐 WebDriverManager used to fetch ChromeDriver");
+        }
+        else
+        {
+            Console.WriteLine("📦 Using local/NuGet ChromeDriver");
         }
 
-        [TearDown]
-        public void Teardown()
+        ExtentReportManager.InitReport();
+        Console.WriteLine("✅ ChromeDriver setup completed");
+    }
+
+    [TestInitialize]
+    public void Setup()
+    {
+        Driver = DriverFactory.GetDriver();
+        DriverProvider.SetDriver(Driver);
+
+        // Ensure properties are loaded and get baseUrl explicitly here
+        var baseUrl = PropertyReader.GetPropertyValue("baseUrl", string.Empty).Trim();
+        Console.WriteLine($"📡 BaseTest.Setup: resolved baseUrl = '{baseUrl}'");
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
         {
-            DriverProvider.ClearDriver();                 // Clear thread-local reference
-            DriverFactory.QuitDriver();                   // Quit and dispose safely
+            throw new InvalidOperationException(
+                "BaseUrl is not configured. Please check App.properties and PropertyReader implementation.");
         }
 
-        [OneTimeTearDown]
-        public async Task OneTimeTeardown()
-        {
-            await ExtentReportManager.FlushReport();      // Finalize report
-            Console.WriteLine("📄 Report finalized");
-        }
+        Driver.Navigate().GoToUrl(baseUrl);
 
-        protected string TakeScreenshot(string screenshotName)
-        {
-            return ScreenshotHelper.Capture(Driver, screenshotName);
-        }
+        // ✅ Defensive handling of TestContext.TestName
+        var testName = string.IsNullOrWhiteSpace(TestContext?.TestName)
+            ? "UnnamedTest"
+            : TestContext.TestName;
 
-        protected void WaitForPageToLoad(int timeoutInSeconds = Constants.Timeouts.MEDIUM_TIMEOUT)
-        {
-            IJavaScriptExecutor js = (IJavaScriptExecutor)Driver;
-            var wait = new OpenQA.Selenium.Support.UI.WebDriverWait(Driver, TimeSpan.FromSeconds(timeoutInSeconds));
-            wait.Until(driver => js.ExecuteScript("return document.readyState").ToString() == "complete");
-        }
+        ExtentReportManager.CreateTest(testName);
+        Console.WriteLine($"🧪 Starting test: {testName}");
+    }
+
+    [TestCleanup]
+    public void Teardown()
+    {
+        DriverProvider.ClearDriver();
+        DriverFactory.QuitDriver();
+    }
+
+    [ClassCleanup]
+    public static async Task OneTimeTeardown()
+    {
+        await ExtentReportManager.FlushReport();
+        Console.WriteLine("📄 Report finalized");
+    }
+
+    protected string TakeScreenshot(string screenshotName)
+    {
+        return ScreenshotHelper.Capture(Driver, screenshotName);
+    }
+
+    protected void WaitForPageToLoad(int timeoutInSeconds = Constants.Timeouts.MEDIUM_TIMEOUT)
+    {
+        IJavaScriptExecutor js = (IJavaScriptExecutor)Driver;
+        var wait = new OpenQA.Selenium.Support.UI.WebDriverWait(Driver, TimeSpan.FromSeconds(timeoutInSeconds));
+        wait.Until(driver => js.ExecuteScript("return document.readyState").ToString() == "complete");
     }
 }

@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PageObjectModelCsharp.Page;
 using PageObjectModelCsharp.Util;
 using PageObjectModelCsharp.Base;
@@ -6,15 +6,15 @@ using System;
 
 namespace PageObjectModelCsharp.Test
 {
-    [TestFixture]
-    [Category(Constants.TestCategories.DOC_SIGNING)]
-    [ExceptionHandler]
+    [TestClass]
+    [TestCategory(Constants.TestCategories.DOC_SIGNING)]
+    [ExceptionHandler] // ✅ Centralized screenshot + logging on failure
     public class DocSigningTest : BaseTest
     {
         private LoginPage _loginPage = null!;
         private HomePage _homePage = null!;
 
-        [SetUp]
+        [TestInitialize]
         public void TestSetup()
         {
             _loginPage = new LoginPage(Driver);
@@ -24,12 +24,12 @@ namespace PageObjectModelCsharp.Test
             _loginPage.LoginWithConfiguredUser();
             WaitForPageToLoad();
 
-            Assert.That(_homePage.IsHomePageLoaded(), Is.True, "Home page should be loaded after login");
+            Assert.IsTrue(_homePage.IsHomePageLoaded(), "Home page should be loaded after login");
             TakeScreenshot("After_Login_Complete");
         }
 
-        [Test]
-        [Category(Constants.TestCategories.SMOKE)]
+        [TestMethod]
+        [TestCategory(Constants.TestCategories.SMOKE)]
         public void Should_Navigate_To_DocSigning_Section()
         {
             Console.WriteLine("📄 Navigating to Doc Signing section...");
@@ -42,17 +42,19 @@ namespace PageObjectModelCsharp.Test
             string currentUrl = Driver.Url;
             bool isFormPresent = _homePage.IsFormPresent();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(isFormPresent || currentUrl.Contains("doc", StringComparison.OrdinalIgnoreCase) || currentUrl.Contains("sign", StringComparison.OrdinalIgnoreCase),
-                    Is.True, "Should navigate to Doc Signing section");
-            });
+            // MSTest doesn't support Assert.Multiple, so check sequentially
+            Assert.IsTrue(
+                isFormPresent ||
+                currentUrl.Contains("doc", StringComparison.OrdinalIgnoreCase) ||
+                currentUrl.Contains("sign", StringComparison.OrdinalIgnoreCase),
+                "Should navigate to Doc Signing section"
+            );
 
             Console.WriteLine("✅ Navigation to Doc Signing verified");
         }
 
-        [Test]
-        [Category(Constants.TestCategories.REGRESSION)]
+        [TestMethod]
+        [TestCategory(Constants.TestCategories.REGRESSION)]
         public void Should_Fill_And_Submit_DocSigning_Form()
         {
             string borrowerName = "John Doe";
@@ -76,14 +78,16 @@ namespace PageObjectModelCsharp.Test
             bool isSubmissionSuccessful = _homePage.IsSubmissionSuccessful();
             string finalUrl = Driver.Url;
 
-            Assert.That(isSubmissionSuccessful || !finalUrl.Contains("BuilderPortal", StringComparison.OrdinalIgnoreCase),
-                Is.True, "Form should be submitted or page should change");
+            Assert.IsTrue(
+                isSubmissionSuccessful || !finalUrl.Contains("BuilderPortal", StringComparison.OrdinalIgnoreCase),
+                "Form should be submitted or page should change"
+            );
 
             Console.WriteLine("✅ Doc Signing form submitted successfully");
         }
 
-        [Test]
-        [Category(Constants.TestCategories.SMOKE)]
+        [TestMethod]
+        [TestCategory(Constants.TestCategories.SMOKE)]
         public void Should_Handle_DocSigning_Form_With_Default_Data()
         {
             Console.WriteLine("📝 Handling Doc Signing form with default data...");
@@ -101,7 +105,7 @@ namespace PageObjectModelCsharp.Test
             bool isFormPresent = _homePage.IsFormPresent();
             bool isSubmissionSuccessful = _homePage.IsSubmissionSuccessful();
 
-            Assert.That(isFormPresent || isSubmissionSuccessful, Is.True,
+            Assert.IsTrue(isFormPresent || isSubmissionSuccessful,
                 "Should be able to interact with Doc Signing functionality");
 
             Console.WriteLine("✅ Default data form handled successfully");

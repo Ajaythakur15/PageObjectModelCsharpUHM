@@ -2,10 +2,14 @@
 
 	<!-- 🔧 Project Configuration -->
 	<PropertyGroup>
-		<TargetFramework>net6.0</TargetFramework>
+		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<IsTestProject>true</IsTestProject>
+		<!-- Prevent SDK from generating assembly attributes when duplicates exist -->
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<!-- Prevent generation of TargetFrameworkAttribute to avoid duplicate attribute errors from SDK-generated files -->
+		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 	</PropertyGroup>
 
 	<!-- 📦 NuGet Dependencies -->
@@ -15,8 +19,10 @@
 		<PackageReference Include="Allure.NUnit" Version="2.14.1" />
 
 		<!-- Testing Framework -->
-		<PackageReference Include="NUnit" Version="4.2.2" />
-		<PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+		<!-- PackageReference Include="NUnit" Version="4.2.2" /-->
+		<!-- PackageReference Include="NUnit3TestAdapter" Version="4.6.0" /-->
+		<PackageReference Include="MSTest.TestFramework" Version="3.2.2" />
+		<PackageReference Include="MSTest.TestAdapter" Version="3.2.2" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
 
 		<!-- Selenium & WebDriver -->
