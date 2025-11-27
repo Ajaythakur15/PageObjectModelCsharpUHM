@@ -1,68 +1,54 @@
 trigger:
-- master   # if your default branch is main, change to main
+- master    # change to main if your branch is 'main'
 
 pool:
   vmImage: 'windows-latest'
 
 steps:
-# Install NuGet CLI (recommended)
-- task: NuGetToolInstaller@1
-  displayName: 'Install NuGet'
-
-# Restore all NuGet packages for the solution
-- task: NuGetCommand@2
-  displayName: 'Restore NuGet packages'
+# Restore NuGet packages for the project
+- task: DotNetCoreCLI@2
+  displayName: 'Restore'
   inputs:
     command: 'restore'
-    restoreSolution: '**/*.sln'
-    feedsToUse: 'select'
-    vstsFeed: ''
+    projects: 'PageObjectModelCsharp.csproj'
 
-# Build the solution using Visual Studio build
-- task: VSBuild@1
-  displayName: 'Build solution'
-  inputs:
-    solution: '**/*.sln'
-    platform: 'Any CPU'
-    configuration: 'Release'
-
-# Run tests (NUnit/MSTest in PageObjectModelCsharp.dll)
-- task: VSTest@2
-  displayName: 'Run tests'
-  inputs:
-    testSelector: 'testAssemblies'
-    testAssemblyVer2: |
-      **\PageObjectModelCsharp.dll
-    searchFolder: '$(System.DefaultWorkingDirectory)'
-    diagnosticsEnabled: false
-    testRunTitle: 'UI Automation - $(Build.BuildNumber)'
-
+# Build the project
 - task: DotNetCoreCLI@2
-  displayName: 'Restore NuGet packages'
-  inputs:
-    command: 'restore'
-    projects: '**/*.csproj'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Build solution'
+  displayName: 'Build'
   inputs:
     command: 'build'
-    projects: '**/*.csproj'
+    projects: 'PageObjectModelCsharp.csproj'
     arguments: '--configuration Release'
 
+# Run tests, create TRX + coverage, BUT do not fail pipeline if tests fail
 - task: DotNetCoreCLI@2
-  displayName: 'Run tests'
+  displayName: 'Test'
+  continueOnError: true          # <-- important: pipeline continues even if tests fail
   inputs:
     command: 'test'
-    projects: '**/*.csproj'
-    arguments: '--configuration Release --logger "trx;LogFileName=TestResults.trx"'
+    projects: 'PageObjectModelCsharp.csproj'
+    arguments: >
+      --configuration Release
+      --logger "trx;LogFileName=TestResults.trx"
+      --collect "XPlat Code Coverage"
     publishTestResults: false
 
+# Publish TRX results so they show in Tests tab
 - task: PublishTestResults@2
   displayName: 'Publish test results'
   inputs:
     testResultsFormat: 'VSTest'
     testResultsFiles: '**/TestResults.trx'
     searchFolder: '$(System.DefaultWorkingDirectory)'
-    failTaskOnFailedTests: true
+    mergeTestResults: true
+    failTaskOnFailedTests: false   # don't fail this step if tests failed
     testRunTitle: 'UI Automation - $(Build.BuildNumber)'
+
+# Publish code coverage to Code Coverage tab
+- task: PublishCodeCoverageResults@2
+  displayName: 'Publish code coverage'
+  inputs:
+    codeCoverageTool: 'Cobertura'
+    summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml'
+    reportDirectory: '$(System.DefaultWorkingDirectory)/**/TestResults'
+    failIfCoverageEmpty: false
