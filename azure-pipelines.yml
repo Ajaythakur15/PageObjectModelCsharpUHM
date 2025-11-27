@@ -1,25 +1,5 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- master
-
-pool:
-  vmImage: ubuntu-latest
-
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
-
-  trigger:
-- master   # change to main if your default branch is main
+- master   # if your default branch is main, change to main
 
 pool:
   vmImage: 'windows-latest'
@@ -29,7 +9,7 @@ steps:
   displayName: 'Install .NET SDK'
   inputs:
     packageType: 'sdk'
-    version: '6.x'          # change if your project uses 7/8
+    version: '6.x'          # change to 7.x or 8.x if needed
 
 - task: DotNetCoreCLI@2
   displayName: 'Restore NuGet packages'
