@@ -26,14 +26,13 @@ steps:
     platform: 'Any CPU'
     configuration: 'Release'
 
-# Run tests (NUnit/MSTest assemblies)
+# Run tests (NUnit/MSTest in PageObjectModelCsharp.dll)
 - task: VSTest@2
   displayName: 'Run tests'
   inputs:
     testSelector: 'testAssemblies'
     testAssemblyVer2: |
-      **\*Test*.dll
-      **\*Tests*.dll
+      **\PageObjectModelCsharp.dll
     searchFolder: '$(System.DefaultWorkingDirectory)'
     diagnosticsEnabled: false
     testRunTitle: 'UI Automation - $(Build.BuildNumber)'
