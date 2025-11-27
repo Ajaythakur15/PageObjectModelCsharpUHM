@@ -5,11 +5,38 @@ pool:
   vmImage: 'windows-latest'
 
 steps:
-- task: UseDotNet@2
-  displayName: 'Install .NET SDK'
+# Install NuGet CLI (recommended)
+- task: NuGetToolInstaller@1
+  displayName: 'Install NuGet'
+
+# Restore all NuGet packages for the solution
+- task: NuGetCommand@2
+  displayName: 'Restore NuGet packages'
   inputs:
-    packageType: 'sdk'
-    version: '6.x'          # change to 7.x or 8.x if needed
+    command: 'restore'
+    restoreSolution: '**/*.sln'
+    feedsToUse: 'select'
+    vstsFeed: ''
+
+# Build the solution using Visual Studio build
+- task: VSBuild@1
+  displayName: 'Build solution'
+  inputs:
+    solution: '**/*.sln'
+    platform: 'Any CPU'
+    configuration: 'Release'
+
+# Run tests (NUnit/MSTest assemblies)
+- task: VSTest@2
+  displayName: 'Run tests'
+  inputs:
+    testSelector: 'testAssemblies'
+    testAssemblyVer2: |
+      **\*Test*.dll
+      **\*Tests*.dll
+    searchFolder: '$(System.DefaultWorkingDirectory)'
+    diagnosticsEnabled: false
+    testRunTitle: 'UI Automation - $(Build.BuildNumber)'
 
 - task: DotNetCoreCLI@2
   displayName: 'Restore NuGet packages'
