@@ -1,11 +1,11 @@
 trigger:
-- master    # change to main if needed
+- master    # change to main if your branch is 'main'
 
 pool:
   vmImage: 'windows-latest'
 
 steps:
-# Restore NuGet packages
+# Restore NuGet packages for the project
 - task: DotNetCoreCLI@2
   displayName: 'Restore'
   inputs:
@@ -20,10 +20,10 @@ steps:
     projects: 'PageObjectModelCsharp.csproj'
     arguments: '--configuration Release'
 
-# Run tests but DO NOT fail the job if some tests fail
+# Run tests, create TRX + coverage, BUT do not fail pipeline if tests fail
 - task: DotNetCoreCLI@2
   displayName: 'Test'
-  continueOnError: true                    # <-- important
+  continueOnError: true          # <-- important: pipeline continues even if tests fail
   inputs:
     command: 'test'
     projects: 'PageObjectModelCsharp.csproj'
@@ -33,22 +33,20 @@ steps:
       --collect "XPlat Code Coverage"
     publishTestResults: false
 
-# Publish TRX so Tests tab shows results
+# Publish TRX results so they show in Tests tab
 - task: PublishTestResults@2
   displayName: 'Publish test results'
-  condition: succeededOrFailed()          # run even if tests failed
   inputs:
     testResultsFormat: 'VSTest'
     testResultsFiles: '**/TestResults.trx'
     searchFolder: '$(System.DefaultWorkingDirectory)'
     mergeTestResults: true
-    failTaskOnFailedTests: false          # don't fail this step
+    failTaskOnFailedTests: false   # don't fail this step if tests failed
     testRunTitle: 'UI Automation - $(Build.BuildNumber)'
 
-# Publish code coverage
+# Publish code coverage to Code Coverage tab
 - task: PublishCodeCoverageResults@2
   displayName: 'Publish code coverage'
-  condition: succeededOrFailed()          # run even if tests failed
   inputs:
     codeCoverageTool: 'Cobertura'
     summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml'
