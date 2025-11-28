@@ -16,7 +16,7 @@
 	<ItemGroup>
 		<!-- Reporting -->
 		<PackageReference Include="ExtentReports" Version="5.0.2" />
-		<!-- PackageReference Include="Allure.NUnit" Version="2.14.1"/>
+		<PackageReference Include="Allure.NUnit" Version="2.14.1" />
 
 		<!-- Testing Framework -->
 		<!-- PackageReference Include="NUnit" Version="4.2.2" /-->
