@@ -9,14 +9,14 @@ variables:
   project: 'PageObjectModelCsharp.csproj'
 
 steps:
-# Restore NuGet packages for the project
+# 1) Restore
 - task: DotNetCoreCLI@2
   displayName: 'Restore'
   inputs:
     command: 'restore'
     projects: '$(project)'
 
-# Build the project
+# 2) Build
 - task: DotNetCoreCLI@2
   displayName: 'Build'
   inputs:
@@ -24,8 +24,7 @@ steps:
     projects: '$(project)'
     arguments: '--configuration $(buildConfiguration)'
 
-# Run tests, create TRX + coverage
-# continueOnError so pipeline continues even if some tests fail
+# 3) Test (creates TRX + coverage). Job continues even if tests fail.
 - task: DotNetCoreCLI@2
   displayName: 'Test'
   continueOnError: true
@@ -38,7 +37,7 @@ steps:
       --collect "XPlat Code Coverage"
     publishTestResults: false
 
-# Publish TRX results so they show in Tests tab
+# 4) Publish TRX -> Tests tab
 - task: PublishTestResults@2
   displayName: 'Publish test results'
   condition: succeededOrFailed()
@@ -50,33 +49,52 @@ steps:
     failTaskOnFailedTests: false
     testRunTitle: 'UI Automation - $(Build.BuildNumber)'
 
-# Install ReportGenerator global tool
+# 5) Install ReportGenerator (ignore errors)
 - task: PowerShell@2
   displayName: 'Install ReportGenerator tool'
   condition: succeededOrFailed()
-  continueOnError: true
   inputs:
     targetType: 'inline'
     script: |
-      dotnet tool install -g dotnet-reportgenerator-globaltool || exit 0
+      try {
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+        Write-Host "ReportGenerator installed."
+      }
+      catch {
+        Write-Host "ReportGenerator already installed or install failed; continuing."
+      }
+      exit 0
 
-# Generate HTML + Cobertura coverage report
+# 6) Generate coverage report (always create CodeCoverage folder)
 - task: PowerShell@2
   displayName: 'Generate code coverage report'
   condition: succeededOrFailed()
-  continueOnError: true
   inputs:
     targetType: 'inline'
     script: |
+      $target = "$(System.DefaultWorkingDirectory)\CodeCoverage"
+      if (-not (Test-Path $target)) {
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+      }
+
       $env:Path += ";$env:USERPROFILE\.dotnet\tools"
+      $coverageFiles = Get-ChildItem "$(System.DefaultWorkingDirectory)" -Recurse -Filter "coverage.cobertura.xml"
+
+      if ($coverageFiles.Count -eq 0) {
+        Write-Host "No coverage.cobertura.xml files found. Creating empty Cobertura.xml."
+        "<coverage></coverage>" | Out-File "$target\Cobertura.xml" -Encoding utf8
+        exit 0
+      }
+
+      Write-Host "Found $($coverageFiles.Count) coverage file(s). Generating report..."
       reportgenerator `
         -reports:"$(System.DefaultWorkingDirectory)\**\coverage.cobertura.xml" `
-        -targetdir:"$(System.DefaultWorkingDirectory)\CodeCoverage" `
+        -targetdir:"$target" `
         -reporttypes:"HtmlInline_AzurePipelines;Cobertura" `
-        -tag:"$(Build.BuildNumber)" `
-        || exit 0
+        -tag:"$(Build.BuildNumber)"
+      exit 0
 
-# Publish code coverage so it shows under Code Coverage tab
+# 7) Publish code coverage -> Code Coverage tab
 - task: PublishCodeCoverageResults@2
   displayName: 'Publish code coverage'
   condition: succeededOrFailed()
@@ -86,7 +104,7 @@ steps:
     reportDirectory: '$(System.DefaultWorkingDirectory)/CodeCoverage'
     failIfCoverageEmpty: false
 
-# Publish the HTML coverage report as a build artifact
+# 8) Publish HTML coverage report as artifact
 - task: PublishBuildArtifacts@1
   displayName: 'Publish HTML coverage report'
   condition: succeededOrFailed()
