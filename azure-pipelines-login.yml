@@ -1,0 +1,52 @@
+# Login-only pipeline
+# Runs ONLY tests in LoginTest.cs
+
+trigger: none        # run manually, no auto trigger
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  project: 'PageObjectModelCsharp.csproj'
+
+steps:
+# Restore
+- task: DotNetCoreCLI@2
+  displayName: 'Restore'
+  inputs:
+    command: 'restore'
+    projects: '$(project)'
+
+# Build
+- task: DotNetCoreCLI@2
+  displayName: 'Build'
+  inputs:
+    command: 'build'
+    projects: '$(project)'
+    arguments: '--configuration $(buildConfiguration)'
+
+# Run ONLY LoginTest.cs
+- task: DotNetCoreCLI@2
+  displayName: 'Test - ONLY LoginTest'
+  continueOnError: true
+  inputs:
+    command: 'test'
+    projects: '$(project)'
+    arguments: >
+      --configuration $(buildConfiguration)
+      --logger "trx;LogFileName=LoginOnly.trx"
+      --filter "ClassName~LoginTest"
+    publishTestResults: false
+
+# Publish TRX so you can see results in Tests tab
+- task: PublishTestResults@2
+  displayName: 'Publish Login test results'
+  condition: succeededOrFailed()
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '**/LoginOnly.trx'
+    searchFolder: '$(System.DefaultWorkingDirectory)'
+    mergeTestResults: true
+    failTaskOnFailedTests: false
+    testRunTitle: 'UI Automation - LOGIN ONLY - $(Build.BuildNumber)'

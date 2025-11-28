@@ -1,0 +1,54 @@
+name: Smoke-$(Date:yyyyMMdd).$(Rev:r)
+
+# Run Smoke on every push to master
+trigger:
+- master          # or set to "none" if you only want manual runs
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  project: 'PageObjectModelCsharp.csproj'
+  testFilter: 'TestCategory=Smoke'    # only Smoke tests
+
+steps:
+# Restore
+- task: DotNetCoreCLI@2
+  displayName: 'Restore'
+  inputs:
+    command: 'restore'
+    projects: '$(project)'
+
+# Build
+- task: DotNetCoreCLI@2
+  displayName: 'Build'
+  inputs:
+    command: 'build'
+    projects: '$(project)'
+    arguments: '--configuration $(buildConfiguration)'
+
+# Run ONLY Smoke tests – fast, no coverage, keep pipeline green
+- task: DotNetCoreCLI@2
+  displayName: 'Test (Smoke only)'
+  continueOnError: true                # pipeline stays green even if a smoke test fails
+  inputs:
+    command: 'test'
+    projects: '$(project)'
+    arguments: >
+      --configuration $(buildConfiguration)
+      --logger "trx;LogFileName=SmokeResults.trx"
+      --filter "$(testFilter)"
+    publishTestResults: false
+
+# Publish Smoke TRX -> Tests tab
+- task: PublishTestResults@2
+  displayName: 'Publish Smoke test results'
+  condition: succeededOrFailed()
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '**/SmokeResults.trx'
+    searchFolder: '$(System.DefaultWorkingDirectory)'
+    mergeTestResults: true
+    failTaskOnFailedTests: false
+    testRunTitle: 'UI Automation - SMOKE - $(Build.BuildNumber)'
